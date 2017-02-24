@@ -1,9 +1,11 @@
-import request
+import requests
 
 
 def _url(path):
+    print("_url")
     return 'https://demo.cyclos.org/api/' + path
 
 
 def auth_data_for_login():
-    return request.get(_url('auth/data-for-login'))
+    print("get")
+    return requests.get(_url('auth/data-for-login'))

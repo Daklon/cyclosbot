@@ -1,9 +1,7 @@
 import cyclos_api
+import config
 
 
 if __name__ == "__main__":
-    resp = cyclos_api.auth_data_for_login()
-    print("resp"+resp.text)
-    for resp_item in resp.json():
-        print("resp_item")
-        print(resp_item)
+    data = cyclos_api.get_account_balance(config.NAME, config.PASSWORD)
+    print(data)

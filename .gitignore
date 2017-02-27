@@ -90,3 +90,6 @@ ENV/
 
 #vim
 .swp
+
+#config file
+config.py

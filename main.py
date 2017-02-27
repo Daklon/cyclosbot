@@ -13,18 +13,24 @@ class BotHandler(telepot.aio.helper.ChatHandler):
 
     async def on_chat_message(self, msg):
         content_type, chat_type, chat_id = telepot.glance(msg)
-        await self.sender.sendMessage('hola ' + str(chat_id))
+        # This is only a temporary code
+        if chatd_id = config.CHAT_ID {
 
-        data = cyclos_api.get_account_balance(config.NAME,
-                                              config.PASSWORD)
+            await self.sender.sendMessage('hola ' + str(chat_id))
 
-        await self.sender.sendMessage('Saldo: ' + data['balance'] +
-                                      '\nCrédito disponible: ' +
-                                      data['availableBalance'])
+            data = cyclos_api.get_account_balance(config.NAME,
+                                                  config.PASSWORD)
 
-        print('saldo: ' + data['balance'])
-        print('\n Crédito disponible: ' + data['availableBalance'])
+            await self.sender.sendMessage('Saldo: ' + data['balance'] +
+                                          '\nCrédito disponible: ' +
+                                          data['availableBalance'])
 
+            print('saldo: ' + data['balance'])
+            print('\n Crédito disponible: ' + data['availableBalance'])
+
+        } else {
+
+            await self.sender.sendMessage('No estás autorizado, el bot está en desarrollo')
 
 if __name__ == "__main__":
 

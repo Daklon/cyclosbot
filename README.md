@@ -2,9 +2,8 @@
 telegram bot that connect to cyclos platform
 
 #TODO
-1.- Integrate with the telegram bot api
-2.- Integrate with a SQL engine to manage the user data
-3.- Add funtion to list anounces
-4.- Search anunces
-5.- Post anunces
-6.- Make payments
+1. Integrate with a SQL engine to manage the user data(maybe aiopg)
+2. Make payments
+3. Add funtion to list anounces
+4. Search anounces
+5. Post anounces

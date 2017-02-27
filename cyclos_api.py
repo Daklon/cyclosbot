@@ -1,6 +1,5 @@
 import requests
 from requests.auth import HTTPBasicAuth
-import json
 
 
 def _url(path):
@@ -16,10 +15,8 @@ def auth_data_for_login():
 
 
 def get_account_balance(name, password):
-    print("getting account balance for " + name)
     response = requests.get(_url(name+"/accounts"),
                             auth=authentication(name, password))
-    # jsonStr = response.text
-    # data = json.loads(jsonStr)
     data = response.json()
-    return data
+    return data[0]['status']
+    # return data

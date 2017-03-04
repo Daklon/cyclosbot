@@ -9,28 +9,13 @@ import sqlalchemy as sa
 import config
 
 
-async def account_balance(name, password, self):
-    data = cyclos_api.get_account_balance(name,
-                                          password)
-
-    await self.sender.sendMessage('Saldo: ' + data['balance'] +
-                                  '\nCrédito disponible: ' +
-                                  data['availableBalance'])
-
-    print('saldo: ' + data['balance'])
-    print('\n Crédito disponible: ' + data['availableBalance'])
-
-
 class BotHandler(telepot.aio.helper.ChatHandler):
     def __init__(self, *args, **kwargs):
         super(BotHandler, self).__init__(*args, **kwargs)
-        engine = None
-        print('iniciamos db')
-        self.intialize_db()
-        print('db iniciada')
-
-    async def intialize_db(args):
-        global engine
+        self.engine = None
+        self.registered = False
+        self.db_ready = False    
+    async def intialize_db(self):
         print('metadata')
         metadata = sa.MetaData()
 
@@ -51,19 +36,24 @@ class BotHandler(telepot.aio.helper.ChatHandler):
                                  config.DB_PORT + '/' +
                                  config.DB_NAME
                                  ) as engine:
-            return engine
+            self.engine = engine
+            self.db_ready = True
+            print("engine set")
         
-    async def on_chat_message(self, msg,):
-        global engine
+    async def on_chat_message(self, msg):
         content_type, chat_type, chat_id = telepot.glance(msg)
+
+        if not self.db_ready:
+            print('iniciamos db')
+            await self.intialize_db()
+            print('db iniciada')
         # This is only a temporary code
-        print(chat_id)
-        print(config.CHAT_ID)
+        print("getn message")
         if chat_id == config.CHAT_ID:
 
             await self.sender.sendMessage('hola ' + str(chat_id))
 
-            async with engine.acquire() as conn:
+            async with self.engine.acquire() as conn:
                 s = self.users.select([self.users.c.username,
                                        self.users.c.password],
                                       self.users.c.chat_id == chat_id)
@@ -107,6 +97,23 @@ class BotHandler(telepot.aio.helper.ChatHandler):
         else:
 
             await self.sender.sendMessage('No estás autorizado, el bot está en desarrollo')
+
+
+    async def checkRegister(self, msg):
+        pass
+    async def register(self):
+        pass
+
+    async def account_balance(name, password, self):
+        data = cyclos_api.get_account_balance(name,
+                                              password)
+    
+        await self.sender.sendMessage('Saldo: ' + data['balance'] +
+                                      '\nCrédito disponible: ' +
+                                      data['availableBalance'])
+    
+        print('saldo: ' + data['balance'])
+        print('\n Crédito disponible: ' + data['availableBalance'])
 
 
 if __name__ == "__main__":

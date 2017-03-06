@@ -3,122 +3,134 @@ import telepot
 import asyncio
 from telepot.aio.delegate import (pave_event_space, per_chat_id,
                                   create_open)
-from aiopg.sa import create_engine
-import sqlalchemy as sa
-
-import config
+import psycopg2
+import psycopg2.extras
+import config as c
 
 
 class BotHandler(telepot.aio.helper.ChatHandler):
     def __init__(self, *args, **kwargs):
         super(BotHandler, self).__init__(*args, **kwargs)
-        self.engine = None
         self.registered = False
-        self.db_ready = False    
-    async def intialize_db(self):
-        print('metadata')
-        metadata = sa.MetaData()
+        self.db_ready = False
 
-        # set the user table config
-        self.users = sa.Table('users', metadata,
-                              sa.Column('chat_id', sa.Integer,
-                                        primary_key=True),
-                              sa.Column('username', sa.String),
-                              sa.Column('password', sa.String),
-                              sa.Column('token', sa.String),
-                              )
+    async def initialize_db(self):
+        print('initalize_db')
 
-        # create the engine object used to connect to the db
-        async with create_engine('postgresql://' +
-                                 config.DB_USER + ':' +
-                                 config.DB_PASSWORD + '@' +
-                                 config.DB_HOST + ':' +
-                                 config.DB_PORT + '/' +
-                                 config.DB_NAME
-                                 ) as engine:
-            self.engine = engine
-            self.db_ready = True
-            print("engine set")
-        
+        conn_string = ("host='" + c.DB_HOST
+                       + "' dbname='" + c.DB_NAME
+                       + "' user='" + c.DB_USER
+                       + "' password='" + c.DB_PASSWORD + "'")
+
+        print(conn_string)
+
+        conn = psycopg2.connect(conn_string)
+
+        self.cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        self.db_ready = True
+        print("db db_ready")
+
     async def on_chat_message(self, msg):
         content_type, chat_type, chat_id = telepot.glance(msg)
 
         if not self.db_ready:
             print('iniciamos db')
-            await self.intialize_db()
+            await self.initialize_db()
             print('db iniciada')
         # This is only a temporary code
         print("getn message")
-        if chat_id == config.CHAT_ID:
+        if chat_id == c.CHAT_ID:
 
             await self.sender.sendMessage('hola ' + str(chat_id))
 
-            async with self.engine.acquire() as conn:
-                s = self.users.select([self.users.c.username,
-                                       self.users.c.password],
-                                      self.users.c.chat_id == chat_id)
-                print(str(s))
-                row = conn.execute(s).fetchone()
-                if row is not None and row['username'] != "" and row['password'] != "":
-                    self.sender.sendMessage('Estás registrado')
+            self.cursor.execute('SELECT * FROM users WHERE chat_id = %(int)s',
+                                {'int': chat_id})
+            row = self.cursor.fetchone()
+            if (row is not None and
+                row['username'] != "" and
+                    row['password'] != ""):
 
-                elif row['username'] == "" and self.wait_username == False:
-                    self.sender.sendMessage('Necesito que me digas tu usuario para poder continuar')
-                    self.wait_username = True
+                await self.sender.sendMessage('Estás registrado')
 
-                elif row['username'] == "" and self.wait_username == True:
-                    # insert username in the database
-                    self.sender.sendMessage('Muy bien, ahora dime tu contraseña')
-                    self.wait_username = False
-                    self.wait_password = True
+            elif row is None:
+                await self.sender.sendMessage('No estás registrado, vamos a'
+                                              + ' solucionarlo, primero,'
+                                              + ' dime tu usuario')
+                # insert chatid in the database
+                self.wait_username = True
 
-                elif row['password'] == "" and self.wait_password == False:
-                    self.sender.sendMessage('Necesitas estar registrado para usar el bot, por favor dime tu contraseña')
-                    self.wait_password = True
+            elif (row['username'] == "" and
+                  self.wait_username is False):
 
-                elif row['password'] == "" and self.wait_password == True:
-                    # insert password
-                    # check if works
+                await self.sender.sendMessage('Necesito que me digas tu '
+                                              + 'usuario para poder continuar')
+                self.wait_username = True
 
-                    # if works
-                        self.sender.sendMessage('Enhorabuena, ya estás registrado y puedes acceder a cyclos a través de mi')
+            elif (row['username'] == "" and
+                  self.wait_username is True):
+                # insert username in the database
+                await self.sender.sendMessage('Muy bien, ahora'
+                                              + ' dime tu contraseña')
+                self.wait_username = False
+                self.wait_password = True
 
-                    # if dont works
-                        self.sender.sendMessage('Vaya, parece que ha habido algún error')
-                        self.sender.sendMessage('El usuario y contraseña que me has dado no funciona, ¿probamos otra vez?')
+            elif (row['password'] == "" and
+                  self.wait_password is False):
 
-                    # reset
+                await self.sender.sendMessage('Hasta que no me digas tu'
+                                              + ' contraseña no puedo'
+                                              + ' ayudarte')
+                self.wait_password = True
 
-                else:
-                    self.sender.sendMessage('No estás registrado, vamos a solucionarlo, primero, dime tu usuario')
-                    # insert chatid in the database
-                    self.wait_username = True
+            elif (row['password'] == "" and
+                  self.wait_password is True):
+                # insert password
+                # check if works
+
+                # if works
+                await self.sender.sendMessage('Enhorabuenaa, ya puedes acceder'
+                                              + ' a cyclos a través de mi')
+                await self.send_help()
+
+                # if dont works
+                await self.sender.sendMessage('Vaya, parece que ha habido'
+                                              + ' algún error')
+                await self.sender.sendMessage('El usuario y contraseña que me'
+                                              + ' has dado no funciona,'
+                                              + ' ¿probamos otra vez?')
+
+                # reset
 
         else:
 
-            await self.sender.sendMessage('No estás autorizado, el bot está en desarrollo')
-
+            await self.sender.sendMessage('No estás autorizado, el bot está'
+                                          + ' en desarrollo')
 
     async def checkRegister(self, msg):
         pass
+
     async def register(self):
+        pass
+
+    async def send_help():
         pass
 
     async def account_balance(name, password, self):
         data = cyclos_api.get_account_balance(name,
                                               password)
-    
+
         await self.sender.sendMessage('Saldo: ' + data['balance'] +
                                       '\nCrédito disponible: ' +
                                       data['availableBalance'])
-    
+
         print('saldo: ' + data['balance'])
         print('\n Crédito disponible: ' + data['availableBalance'])
 
 
 if __name__ == "__main__":
 
-    bot = telepot.aio.DelegatorBot(config.TOKEN, [
+    bot = telepot.aio.DelegatorBot(c.TOKEN, [
         pave_event_space()(
             per_chat_id(), create_open, BotHandler, timeout=100),
         ])

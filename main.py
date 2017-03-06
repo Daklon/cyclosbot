@@ -58,6 +58,8 @@ class BotHandler(telepot.aio.helper.ChatHandler):
                                               + ' solucionarlo, primero,'
                                               + ' dime tu usuario')
                 # insert chatid in the database
+                self.cursor.execute('INSERT IN users (chat_id) values %(int)s',
+                                    chat_id)
                 self.wait_username = True
 
             elif (row['username'] == "" and

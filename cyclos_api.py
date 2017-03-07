@@ -1,10 +1,12 @@
 import requests
 from requests.auth import HTTPBasicAuth
+import config
 
 
 # function that return the url where the api is
 def _url(path):
-    return 'https://communities.cyclos.org/tenerife/api/' + path
+    return ('https://communities.cyclos.org/' + config.COMMUNITY
+            + '/api/' + path)
 
 
 # Return the data needed by request auth param

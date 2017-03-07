@@ -13,7 +13,8 @@ class BotHandler(telepot.aio.helper.ChatHandler):
         super(BotHandler, self).__init__(*args, **kwargs)
         self.registered = False
         self.db_ready = False
-
+        self.wait_username = False
+        self.wait_password = False
     async def initialize_db(self):
         print('initalize_db')
 
@@ -25,7 +26,7 @@ class BotHandler(telepot.aio.helper.ChatHandler):
         print(conn_string)
 
         conn = psycopg2.connect(conn_string)
-
+        conn.autocommit = True
         self.cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
         self.db_ready = True
@@ -44,13 +45,14 @@ class BotHandler(telepot.aio.helper.ChatHandler):
 
             await self.sender.sendMessage('hola ' + str(chat_id))
 
-            self.cursor.execute('SELECT * FROM users WHERE chat_id = %(int)s',
-                                {'int': chat_id})
+            self.cursor.execute('SELECT * FROM users WHERE chat_id = %s',
+                                (chat_id,))
             row = self.cursor.fetchone()
             if (row is not None and
-                row['username'] != "" and
-                    row['password'] != ""):
+                row['username'] != None and
+                    row['password'] != None):
 
+                print(row['username'])
                 await self.sender.sendMessage('Estás registrado')
 
             elif row is None:
@@ -58,26 +60,28 @@ class BotHandler(telepot.aio.helper.ChatHandler):
                                               + ' solucionarlo, primero,'
                                               + ' dime tu usuario')
                 # insert chatid in the database
-                self.cursor.execute('INSERT IN users (chat_id) values %(int)s',
-                                    chat_id)
+                self.cursor.execute('INSERT INTO users (chat_id) VALUES (%s)',
+                                    (chat_id,))
                 self.wait_username = True
 
-            elif (row['username'] == "" and
+            elif (row['username'] == None and
                   self.wait_username is False):
 
                 await self.sender.sendMessage('Necesito que me digas tu '
                                               + 'usuario para poder continuar')
                 self.wait_username = True
 
-            elif (row['username'] == "" and
+            elif (row['username'] == None and
                   self.wait_username is True):
                 # insert username in the database
+                self.cursor.execute('UPDATE users SET username = %s WHERE chat_id = %s',
+                                    (msg['text'], chat_id))
                 await self.sender.sendMessage('Muy bien, ahora'
                                               + ' dime tu contraseña')
                 self.wait_username = False
                 self.wait_password = True
 
-            elif (row['password'] == "" and
+            elif (row['password'] == None and
                   self.wait_password is False):
 
                 await self.sender.sendMessage('Hasta que no me digas tu'
@@ -85,7 +89,7 @@ class BotHandler(telepot.aio.helper.ChatHandler):
                                               + ' ayudarte')
                 self.wait_password = True
 
-            elif (row['password'] == "" and
+            elif (row['password'] == None and
                   self.wait_password is True):
                 # insert password
                 # check if works

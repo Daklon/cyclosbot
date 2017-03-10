@@ -36,3 +36,12 @@ def auth(name, password):
         return True
     else:
         return False
+    
+# Search advertisements
+def search(name, password,keyword):
+    pass
+
+# Create new advertisement
+def create(name, password, data):
+    pass
+

@@ -26,3 +26,13 @@ def get_account_balance(name, password):
     data = response.json()
     return data[0]['status']
     # return data
+
+
+# Return the basic account info
+def auth(name, password):
+    response = requests.get(_url('auth'),
+                            auth=authentication(name, password))
+    if (response.status_code == 200):
+        return True
+    else:
+        return False

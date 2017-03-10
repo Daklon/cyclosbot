@@ -15,6 +15,9 @@ class BotHandler(telepot.aio.helper.ChatHandler):
         self.db_ready = False
         self.wait_username = False
         self.wait_password = False
+        self.username = None
+        self.password = None
+
     async def initialize_db(self):
         print('initalize_db')
 
@@ -41,88 +44,93 @@ class BotHandler(telepot.aio.helper.ChatHandler):
             print('db iniciada')
         # This is only a temporary code
         print("getn message")
-        if chat_id == c.CHAT_ID:
+        # if chat_id == c.CHAT_ID:
 
-            await self.sender.sendMessage('hola ' + str(chat_id))
+        await self.sender.sendMessage('hola ' + str(chat_id))
 
-            self.cursor.execute('SELECT * FROM users WHERE chat_id = %s',
+        self.cursor.execute('SELECT * FROM users WHERE chat_id = %s',
+                            (chat_id,))
+        row = self.cursor.fetchone()
+        if (row is not None and
+            row['username'] is not None and
+                row['password'] is not None):
+
+            print(row['username'])
+            await self.sender.sendMessage('Estás registrado')
+
+        elif row is None:
+            await self.sender.sendMessage('No estás registrado, vamos a'
+                                          + ' solucionarlo, primero,'
+                                          + ' dime tu usuario')
+            # insert chatid in the database
+            self.cursor.execute('INSERT INTO users (chat_id) VALUES (%s)',
                                 (chat_id,))
-            row = self.cursor.fetchone()
-            if (row is not None and
-                row['username'] != None and
-                    row['password'] != None):
+            self.wait_username = True
 
-                print(row['username'])
-                await self.sender.sendMessage('Estás registrado')
+        elif (row['username'] is None and
+              self.wait_username is False):
 
-            elif row is None:
-                await self.sender.sendMessage('No estás registrado, vamos a'
-                                              + ' solucionarlo, primero,'
-                                              + ' dime tu usuario')
-                # insert chatid in the database
-                self.cursor.execute('INSERT INTO users (chat_id) VALUES (%s)',
-                                    (chat_id,))
-                self.wait_username = True
+            await self.sender.sendMessage('Necesito que me digas tu '
+                                          + 'usuario para poder continuar')
+            self.wait_username = True
 
-            elif (row['username'] == None and
-                  self.wait_username is False):
+        elif (row['username'] is None and
+              self.wait_username is True):
+            # insert username in the database
+            self.cursor.execute('UPDATE users SET username = %s WHERE chat_id = %s',
+                                (msg['text'], chat_id))
+            self.username = msg['text']
+            await self.sender.sendMessage('Muy bien, ahora'
+                                          + ' dime tu contraseña')
+            self.wait_username = False
+            self.wait_password = True
 
-                await self.sender.sendMessage('Necesito que me digas tu '
-                                              + 'usuario para poder continuar')
-                self.wait_username = True
+        elif (row['password'] is None and
+              self.wait_password is False):
 
-            elif (row['username'] == None and
-                  self.wait_username is True):
-                # insert username in the database
-                self.cursor.execute('UPDATE users SET username = %s WHERE chat_id = %s',
-                                    (msg['text'], chat_id))
-                await self.sender.sendMessage('Muy bien, ahora'
-                                              + ' dime tu contraseña')
-                self.wait_username = False
-                self.wait_password = True
+            await self.sender.sendMessage('Hasta que no me digas tu'
+                                          + ' contraseña no puedo'
+                                          + ' ayudarte')
+            self.wait_password = True
 
-            elif (row['password'] == None and
-                  self.wait_password is False):
-
-                await self.sender.sendMessage('Hasta que no me digas tu'
-                                              + ' contraseña no puedo'
-                                              + ' ayudarte')
-                self.wait_password = True
-
-            elif (row['password'] == None and
-                  self.wait_password is True):
-                # insert password
-                # check if works
-
+        elif (row['password'] is None and
+              self.wait_password is True):
+            # insert password
+            self.cursor.execute('UPDATE users SET password = %s WHERE chat_id = %s',
+                                (msg['text'], chat_id))
+            self.password = msg['text']
+            # check if works
+            if (await self.checkRegister()):
                 # if works
                 await self.sender.sendMessage('Enhorabuenaa, ya puedes acceder'
                                               + ' a cyclos a través de mi')
                 await self.send_help()
-
+            else:
                 # if dont works
                 await self.sender.sendMessage('Vaya, parece que ha habido'
                                               + ' algún error')
                 await self.sender.sendMessage('El usuario y contraseña que me'
                                               + ' has dado no funciona,'
                                               + ' ¿probamos otra vez?')
-
+                self.cursor.execute('DELETE FROM users WHERE chat_id = %s',
+                                    (chat_id,))
                 # reset
 
-        else:
+        # else:
 
-            await self.sender.sendMessage('No estás autorizado, el bot está'
-                                          + ' en desarrollo')
+        #    await self.sender.sendMessage('No estás autorizado, el bot está'
+        #                                  + ' en desarrollo')
 
-    async def checkRegister(self, msg):
-        pass
+    async def checkRegister(self):
+        return cyclos_api.auth(self.username, self.password)
 
     async def register(self):
         pass
 
-    async def send_help():
-        pass
+    async def send_help(self):
+        await self.sender.sendMessage('Sin acabar, estoy en ello')
 
-    async def account_balance(name, password, self):
+    async def account_balance(self, name, password):
         data = cyclos_api.get_account_balance(name,
                                               password)
 

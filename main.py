@@ -55,8 +55,10 @@ class BotHandler(telepot.aio.helper.ChatHandler):
             row['username'] is not None and
                 row['password'] is not None):
 
-            print(row['username'])
-            await self.sender.sendMessage('Estás registrado')
+            self.username = row['username']
+            self.password = row['password']
+
+            await self.process(msg)
 
         elif row is None:
             await self.sender.sendMessage('No estás registrado, vamos a'
@@ -128,18 +130,25 @@ class BotHandler(telepot.aio.helper.ChatHandler):
         pass
 
     async def send_help(self):
-        await self.sender.sendMessage('Sin acabar, estoy en ello')
+        await self.sender.sendMessage('De momento solo hay un comando')
+        await self.sender.sendMessage('saldo')
+        await self.sender.sendMessage('Devuelve el saldo disponible')
 
-    async def account_balance(self, name, password):
-        data = cyclos_api.get_account_balance(name,
-                                              password)
+    async def process(self, msg):
+        text = msg['text']
+        if 'saldo' in text.lower():
+            await self.account_balance()
+
+        else:
+            await self.send_help()
+
+    async def account_balance(self):
+        data = cyclos_api.get_account_balance(self.username,
+                                              self.password)
 
         await self.sender.sendMessage('Saldo: ' + data['balance'] +
                                       '\nCrédito disponible: ' +
                                       data['availableBalance'])
-
-        print('saldo: ' + data['balance'])
-        print('\n Crédito disponible: ' + data['availableBalance'])
 
 
 if __name__ == "__main__":

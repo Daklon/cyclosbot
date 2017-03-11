@@ -36,12 +36,29 @@ def auth(name, password):
         return True
     else:
         return False
-    
+
+
 # Search advertisements
-def search(name, password,keyword):
+def search(name, password, keyword):
     pass
+
 
 # Create new advertisement
 def create(name, password, data):
-    pass
+    response = requests.post(_url(name+'/marketplace'),
+                             json=data,
+                             auth=authentication(name, password))
+    if (response.status_code == 200):
+        return True
+    else:
+        return False
 
+
+# Get info needed to create new advertisements
+def get_marketplace_info(name, password):
+    # payload = {'fields': 'categories', 'kind': 'simple' }
+    payload = {'kind': 'simple'}
+    response = requests.get(_url(name+'/marketplace/data-for-new'),
+                            params=payload,
+                            auth=authentication(name, password))
+    print(response.json())

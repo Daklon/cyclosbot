@@ -46,7 +46,7 @@ class BotHandler(telepot.aio.helper.ChatHandler):
         print("getn message")
         # if chat_id == c.CHAT_ID:
 
-        await self.sender.sendMessage('hola ' + str(chat_id))
+        # await self.sender.sendMessage('hola ' + str(chat_id))
 
         self.cursor.execute('SELECT * FROM users WHERE chat_id = %s',
                             (chat_id,))

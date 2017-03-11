@@ -7,6 +7,8 @@ import psycopg2
 import psycopg2.extras
 import config as c
 
+import logging
+
 
 class BotHandler(telepot.aio.helper.ChatHandler):
     def __init__(self, *args, **kwargs):
@@ -19,37 +21,35 @@ class BotHandler(telepot.aio.helper.ChatHandler):
         self.password = None
 
     async def initialize_db(self):
-        print('initalize_db')
+        logging.info('Initializing database')
 
         conn_string = ("host='" + c.DB_HOST
                        + "' dbname='" + c.DB_NAME
                        + "' user='" + c.DB_USER
                        + "' password='" + c.DB_PASSWORD + "'")
 
-        print(conn_string)
+        logging.debug(conn_string)
 
         conn = psycopg2.connect(conn_string)
         conn.autocommit = True
         self.cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
         self.db_ready = True
-        print("db db_ready")
+        logging.info("Database ready")
 
     async def on_chat_message(self, msg):
         content_type, chat_type, chat_id = telepot.glance(msg)
 
         if not self.db_ready:
-            print('iniciamos db')
+            logging.info('Database not started')
             await self.initialize_db()
-            print('db iniciada')
-        # This is only a temporary code
-        print("getn message")
-        # if chat_id == c.CHAT_ID:
-
-        # await self.sender.sendMessage('hola ' + str(chat_id))
+        logging.info('Received message from: %s', chat_id)
+        logging.debug(msg['text'])
 
         self.cursor.execute('SELECT * FROM users WHERE chat_id = %s',
                             (chat_id,))
+        logging.debug("Sql select")
+
         row = self.cursor.fetchone()
         if (row is not None and
             row['username'] is not None and
@@ -57,8 +57,8 @@ class BotHandler(telepot.aio.helper.ChatHandler):
 
             self.username = row['username']
             self.password = row['password']
-
-            await self.process(msg)
+            logging.debug('Processing new message: %s', chat_id)
+            await self.process(msg, chat_id)
 
         elif row is None:
             await self.sender.sendMessage('No estás registrado, vamos a'
@@ -104,7 +104,7 @@ class BotHandler(telepot.aio.helper.ChatHandler):
             # check if works
             if (await self.checkRegister()):
                 # if works
-                await self.sender.sendMessage('Enhorabuenaa, ya puedes acceder'
+                await self.sender.sendMessage('Enhorabuena, ya puedes acceder'
                                               + ' a cyclos a través de mi')
                 await self.send_help()
             else:
@@ -131,20 +131,24 @@ class BotHandler(telepot.aio.helper.ChatHandler):
 
     async def send_help(self):
         await self.sender.sendMessage('De momento solo hay un comando')
-        await self.sender.sendMessage('saldo')
-        await self.sender.sendMessage('Devuelve el saldo disponible')
+        await self.sender.sendMessage('saldo: Devuelve el saldo disponible')
 
-    async def process(self, msg):
+    async def process(self, msg, chat_id):
         text = msg['text']
         if 'saldo' in text.lower():
-            await self.account_balance()
+            logging.debug('Received saldo command from: %s', chat_id)
+            await self.account_balance(chat_id)
 
         else:
+            logging.debug('Sending help to: %s', chat_id)
             await self.send_help()
 
-    async def account_balance(self):
+    async def account_balance(self, chat_id):
+        logging.debug("Waiting the api answer")
         data = cyclos_api.get_account_balance(self.username,
                                               self.password)
+        logging.debug("Received api answer")
+        logging.info("Sending answer to: %s", chat_id)
 
         await self.sender.sendMessage('Saldo: ' + data['balance'] +
                                       '\nCrédito disponible: ' +
@@ -161,5 +165,6 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.create_task(bot.message_loop())
     print('Listening')
+    logging.basicConfig(filename=c.LOG_DIR, format='%(asctime)s - %(levelname)s:%(message)s', level=c.DEBUG_LEVEL)
 
     loop.run_forever()

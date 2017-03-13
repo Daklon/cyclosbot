@@ -3,6 +3,7 @@ import telepot
 import asyncio
 from telepot.aio.delegate import (pave_event_space, per_chat_id,
                                   create_open)
+from telepot.namedtuple import ReplyKeyboardMarkup, KeyboardButton
 import psycopg2
 import psycopg2.extras
 import config as c
@@ -17,8 +18,10 @@ class BotHandler(telepot.aio.helper.ChatHandler):
         self.db_ready = False
         self.wait_username = False
         self.wait_password = False
+        self.wait_category_select = False
         self.username = None
         self.password = None
+        self.categories = [[]]
 
     async def initialize_db(self):
         logging.info('Initializing database')
@@ -37,6 +40,7 @@ class BotHandler(telepot.aio.helper.ChatHandler):
         self.db_ready = True
         logging.info("Database ready")
 
+    # This method is called each time a new message arrives
     async def on_chat_message(self, msg):
         content_type, chat_type, chat_id = telepot.glance(msg)
 
@@ -123,26 +127,54 @@ class BotHandler(telepot.aio.helper.ChatHandler):
         #    await self.sender.sendMessage('No estás autorizado, el bot está'
         #                                  + ' en desarrollo')
 
+    # Return true if success or false if fail
     async def checkRegister(self):
         return cyclos_api.auth(self.username, self.password)
 
+    # Register new user in the bot db
     async def register(self):
         pass
 
+    # Send help to the user, a list of commands
     async def send_help(self):
         await self.sender.sendMessage('De momento solo hay un comando')
         await self.sender.sendMessage('saldo: Devuelve el saldo disponible')
 
+    # Process the answer from the user to decide what to do
     async def process(self, msg, chat_id):
         text = msg['text']
         if 'saldo' in text.lower():
             logging.debug('Received saldo command from: %s', chat_id)
             await self.account_balance(chat_id)
 
+        elif 'anuncio' in text.lower():
+            if 'nuevo' in text.lower():
+                await self.new_advert()
+
+        elif [text] in self.categories:
+            await self.sender.sendMessage('ahora imprimo las subcategorías, si las hay')
         else:
             logging.debug('Sending help to: %s', chat_id)
             await self.send_help()
 
+    # Start asking info to the user to create new advertise
+    async def new_advert(self):
+        data = cyclos_api.get_marketplace_info(self.username,
+                                               self.password)
+        # for each parent category, create new list, and append to
+        # the main list, then create a keyboard using this list and
+        # send it
+        for parent in data['categories']:
+            temps = []
+            temps.append(parent['name'])
+            self.categories.append(temps)
+
+        markup = ReplyKeyboardMarkup(keyboard=self.categories, one_time_keyboard=True)
+        await self.sender.sendMessage('Selecciona en que categoría'
+                                      + ' deseas que aparezca el anuncio',
+                                      reply_markup=markup)
+
+    # Return the user's account balance
     async def account_balance(self, chat_id):
         logging.debug("Waiting the api answer")
         data = cyclos_api.get_account_balance(self.username,
@@ -167,4 +199,9 @@ if __name__ == "__main__":
     print('Listening')
     logging.basicConfig(filename=c.LOG_DIR, format='%(asctime)s - %(levelname)s:%(message)s', level=c.DEBUG_LEVEL)
 
-    loop.run_forever()
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        # unifinished
+        pass
+

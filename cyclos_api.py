@@ -56,9 +56,9 @@ def create(name, password, data):
 
 # Get info needed to create new advertisements
 def get_marketplace_info(name, password):
-    # payload = {'fields': 'categories', 'kind': 'simple' }
-    payload = {'kind': 'simple'}
+    payload = {'fields': 'categories', 'kind': 'simple'}
+    # payload = {'kind': 'simple'}
     response = requests.get(_url(name+'/marketplace/data-for-new'),
                             params=payload,
                             auth=authentication(name, password))
-    print(response.json())
+    return response.json()

@@ -19,9 +19,19 @@ class BotHandler(telepot.aio.helper.ChatHandler):
         self.wait_username = False
         self.wait_password = False
         self.wait_category_select = False
+        self.wait_advert_title = False
+        self.wait_advert_body = False
+        self.wait_advert_price = False
         self.username = None
         self.password = None
         self.categories = [[]]
+        self.subcategories = [[]]
+        self.advert_body = None
+        self.advert_price = None
+        self.advert_title = None
+        self.advert_parent_category = None
+        self.advert_child_category = None
+
 
     async def initialize_db(self):
         logging.info('Initializing database')
@@ -147,32 +157,92 @@ class BotHandler(telepot.aio.helper.ChatHandler):
             logging.debug('Received saldo command from: %s', chat_id)
             await self.account_balance(chat_id)
 
+        # New advert block
         elif 'anuncio' in text.lower():
             if 'nuevo' in text.lower():
                 await self.new_advert()
 
-        elif [text] in self.categories:
-            await self.sender.sendMessage('ahora imprimo las subcategorías, si las hay')
+        elif self.wait_category_select:
+            if [text] in self.categories:
+                self.advert_parent_category = text
+                await self.new_advert()
+            elif [text] in self.subcategories:
+                self.advert_child_category = text
+                await self.ask_advert_title()
+
+        elif self.wait_advert_title:
+            self.advert_title = text
+            await self.ask_advert_body()
+
+        elif self.wait_advert_body:
+            self.advert_body = text
+            await self.ask_advert_price()
+
+        elif self.wait_advert_price:
+            if text.isdigit():
+                self.advert_price = text
+                await self.post_advert()
+            else:
+                await self.sender.sendMessage('El precio solo puede contener '
+                                              + 'números, no letras u otros '
+                                              + 'símbolos\nInténtalo otra vez')
         else:
             logging.debug('Sending help to: %s', chat_id)
             await self.send_help()
 
+    async def post_advert(self):
+        await self.sender.sendMessage('Ahora crearé el anuncio')
+
+    async def ask_advert_price(self):
+        self.wait_advert_body = False
+        self.wait_advert_price = True
+        await self.sender.sendMessage('¿Cuánto va a costar?')
+
+    async def ask_advert_body(self):
+        self.wait_advert_title = False
+        self.wait_advert_body = True
+        await self.sender.sendMessage('Por favor, dime que deseas que aparezca en el cuerpo del anuncio')
+        await self.sender.sendMessage('Recuerda hacerlo en un solo mensaje')
+
+    # Ask about the advert title
+    async def ask_advert_title(self):
+        self.wait_category_select = False
+        self.wait_advert_title = True
+        await self.sender.sendMessage('¿Qué título quieres ponerle al anuncio?')
+
     # Start asking info to the user to create new advertise
     async def new_advert(self):
+        self.wait_category_select = True
         data = cyclos_api.get_marketplace_info(self.username,
                                                self.password)
         # for each parent category, create new list, and append to
         # the main list, then create a keyboard using this list and
         # send it
-        for parent in data['categories']:
-            temps = []
-            temps.append(parent['name'])
-            self.categories.append(temps)
+        if self.advert_parent_category is None:
+            if len(data['categories']) > 0:
+                for parent in data['categories']:
+                    temps = []
+                    temps.append(parent['name'])
+                    self.categories.append(temps)
 
-        markup = ReplyKeyboardMarkup(keyboard=self.categories, one_time_keyboard=True)
-        await self.sender.sendMessage('Selecciona en que categoría'
-                                      + ' deseas que aparezca el anuncio',
-                                      reply_markup=markup)
+                markup = ReplyKeyboardMarkup(keyboard=self.categories,
+                                             one_time_keyboard=True)
+                await self.sender.sendMessage('Selecciona en que categoría'
+                                              + ' deseas que aparezca el anuncio',
+                                              reply_markup=markup)
+        else:
+            for parent in data['categories']:
+                if parent['name'] == self.advert_parent_category:
+                    for child in parent['children']:
+                        temps = []
+                        temps.append(child['name'])
+                        self.subcategories.append(temps)
+
+            markup = ReplyKeyboardMarkup(keyboard=self.subcategories,
+                                         one_time_keyboard=True)
+            await self.sender.sendMessage('Ahora elige la subcategoría'
+                                          + ' que mejor encaje',
+                                          reply_markup=markup)
 
     # Return the user's account balance
     async def account_balance(self, chat_id):
